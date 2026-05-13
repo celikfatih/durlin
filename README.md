@@ -59,7 +59,7 @@ No local Git clone required. Durlin fetches everything remotely.
 ## Installation
 
 ```bash
-git clone https://github.com/your-org/durlin.git
+git clone https://github.com/celikfatih/durlin.git
 cd durlin
 uv sync
 ```
