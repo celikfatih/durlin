@@ -5,11 +5,13 @@ description = "AI-powered CLI tool that auto-generates structured technical Jira
 readme = "README.md"
 requires-python = ">=3.12.0"
 dependencies = [
+    "fastapi>=0.136.1",
     "jira>=3.10.5",
     "openai>=2.36.0",
     "pydantic-settings>=2.14.1",
     "python-dotenv>=1.2.2",
     "typer>=0.25.1",
+    "uvicorn[standard]>=0.46.0",
 ]
 
 [dependency-groups]

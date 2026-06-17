@@ -59,7 +59,7 @@ No local Git clone required. Durlin fetches everything remotely.
 ## Installation
 
 ```bash
-git clone https://github.com/celikfatih/durlin.git
+git clone https://github.com/your-org/durlin.git
 cd durlin
 uv sync
 ```
@@ -83,6 +83,12 @@ JIRA_API_TOKEN=your-jira-api-token
 # GitHub
 GITHUB_TOKEN=your-github-personal-access-token
 
+# Webhook Server (Phase 2)
+WEBHOOK_PORT=8000
+WEBHOOK_SECRET=your-shared-secret-configured-in-jira
+WEBHOOK_VERIFY_SIGNATURE=true
+TRIGGER_STATUS=Ready-for-Test
+
 # AI
 AI_API_KEY=your-openai-api-key
 AI_MODEL_NAME=gpt-4o
@@ -90,31 +96,93 @@ AI_BASE_URL=https://api.openai.com/v1
 AI_OUTPUT_LANGUAGE=Turkish
 ```
 
-> **Note for private GitHub organizations:** After generating your token, go to [GitHub Tokens](https://github.com/settings/tokens), click **Configure SSO** next to the token, and authorize your organization. Otherwise, requests to private repositories will return `404`.
+> **Note for private GitHub organizations:** After generating your token, go to [GitHub Tokens](https://github.com/settings/tokens), click **Configure SSO** next to the token, and authorize your organization.
 
 ---
 
 ## Usage
 
-### Auto-discover from Jira (recommended)
+### Mode 1 — CLI (one-shot)
+
+Run analysis for a single Jira issue and post the comment:
 
 ```bash
-uv run python -m src.presentation.cli PROJ-123
+uv run python -m src.presentation.cli analyze PROJ-123
 ```
 
-Durlin fetches the Jira issue, discovers all linked GitHub PRs and commits, retrieves their diffs, generates the comment, and posts it.
-
-### Preview without posting
+Preview the comment without posting:
 
 ```bash
-uv run python -m src.presentation.cli PROJ-123 --dry-run
+uv run python -m src.presentation.cli analyze PROJ-123 --dry-run
 ```
 
-### Provide a specific GitHub URL
+Provide a specific GitHub PR URL instead of auto-discovering:
 
 ```bash
-uv run python -m src.presentation.cli PROJ-123 "https://github.com/org/repo/pull/42"
+uv run python -m src.presentation.cli analyze PROJ-123 "https://github.com/org/repo/pull/42"
 ```
+
+---
+
+### Mode 2 — Webhook Server (automated)
+
+Start Durlin as a long-running HTTP server that listens for Jira transitions:
+
+```bash
+uv run python -m src.presentation.cli serve
+```
+
+Durlin will automatically trigger the full analysis pipeline whenever a Jira issue transitions to the status defined in `TRIGGER_STATUS`.
+
+**Webhook endpoint:** `POST /webhook/jira`
+**Health check:** `GET /health`
+
+#### Setting up the Jira Webhook
+
+1. In Jira, go to **Settings → System → Webhooks**
+2. Create a new webhook pointing to `http://your-server:8000/webhook/jira`
+3. Set the JQL filter to limit events (e.g., `project = PROJ`) to reduce noise
+4. Enable the **Issue Updated** event
+5. Set the **Secret** to the same value as `WEBHOOK_SECRET` in your `.env`
+
+---
+
+## Deployment
+
+Durlin ships with a multi-stage `Dockerfile` and `docker-compose.yml` for single-step deployment.
+
+### Docker Compose (recommended)
+
+```bash
+docker compose up -d
+```
+
+This builds the image, starts the webhook server, and applies a health check automatically.
+
+### Docker (manual)
+
+```bash
+docker build -t durlin .
+docker run -d --env-file .env -p 8000:8000 durlin
+```
+
+### Kubernetes
+
+Deploy the Docker image to any Kubernetes cluster. A minimal `Deployment` + `Service` manifest is all that's required — expose port `8000` and mount your `.env` variables as a `Secret` or `ConfigMap`.
+
+### Local development with ngrok
+
+To test webhooks locally, expose your server using [ngrok](https://ngrok.com/):
+
+```bash
+# Terminal 1 — start the server
+uv run python -m src.presentation.cli serve
+
+# Terminal 2 — create a tunnel
+ngrok http 8000
+```
+
+Use the generated `https://xxxx.ngrok.io/webhook/jira` URL in your Jira Webhook configuration.
 
 ---
 

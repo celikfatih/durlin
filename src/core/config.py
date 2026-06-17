@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     # GitHub Settings
     GITHUB_TOKEN: str = ""
 
+    # Webhook Server Settings
+    WEBHOOK_HOST: str = "0.0.0.0"
+    WEBHOOK_PORT: int = 8000
+    WEBHOOK_SECRET: str = ""
+    WEBHOOK_VERIFY_SIGNATURE: bool = False
+    TRIGGER_STATUS: str = "Ready-for-Test"
+
     # AI Settings
     AI_PROVIDER: str = "openai"
     AI_BASE_URL: str = "https://api.openai.com/v1"

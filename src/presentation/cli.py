@@ -80,5 +80,33 @@ def analyze(
         console.print(f"[bold red]Unexpected Error:[/bold red] {str(e)}")
         raise typer.Exit(code=2)
 
+@app.command()
+def serve() -> None:
+    """
+    Start Durlin as a webhook server.
+
+    Listens for Jira issue transition events and automatically generates
+    and posts technical comments when an issue reaches the configured trigger status.
+    """
+    import uvicorn  # type: ignore[import-untyped]
+    from src.presentation.server import create_app
+
+    settings = get_settings()
+    server_app = create_app(settings)
+
+    console.print(
+        f"[bold green]Durlin webhook server starting on "
+        f"http://{settings.WEBHOOK_HOST}:{settings.WEBHOOK_PORT}[/bold green]"
+    )
+    console.print(f"[blue]Trigger status:[/blue] {settings.TRIGGER_STATUS}")
+    console.print(f"[blue]Signature verification:[/blue] {settings.WEBHOOK_VERIFY_SIGNATURE}")
+
+    uvicorn.run(
+        server_app,
+        host=settings.WEBHOOK_HOST,
+        port=settings.WEBHOOK_PORT,
+    )
+
+
 if __name__ == "__main__":
     app()
