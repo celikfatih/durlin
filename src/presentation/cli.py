@@ -24,7 +24,19 @@ import typing
 @app.command()
 def analyze(
     issue_key: str = typer.Argument(..., help="The Jira Issue Key (e.g., PROJ-123)"),
-    git_ref: typing.Optional[str] = typer.Argument(None, help="Optional Git reference for the diff (e.g., 'master...branch'). If omitted, Durlin discovers commits from Jira directly."),
+    git_refs: typing.List[str] = typer.Option(
+        [],
+        "--ref", "-r",
+        help="GitHub URL to diff (PR, commit, or compare URL). "
+             "Can be repeated for multiple repositories when the Jira Dev Status API is unavailable. "
+             "Example: --ref https://github.com/org/repo1/commit/abc --ref https://github.com/org/repo2/pull/5"
+    ),
+    base_branch: typing.Optional[str] = typer.Option(
+        None,
+        "--base-branch", "-b",
+        help="Base branch/ref to compare commits against (e.g. 'master'). "
+             "Only applies to commit URLs. When set, uses compare/<base>...<sha> instead of the single-commit diff."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate the comment but do not post it to Jira")
 ):
     """
@@ -60,9 +72,10 @@ def analyze(
         # Execute
         console.print(f"[bold blue]Starting Durlin Analysis for {issue_key}...[/bold blue]")
         generated_comment = analyzer.analyze_and_comment(
-            issue_key=issue_key, 
-            git_reference=git_ref, 
-            dry_run=dry_run
+            issue_key=issue_key,
+            git_references=git_refs if git_refs else None,
+            base_branch=base_branch,
+            dry_run=dry_run,
         )
         
         # Display Result

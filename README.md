@@ -15,20 +15,28 @@ Durlin connects to Jira, discovers linked GitHub Pull Requests, fetches their di
 
 ## How It Works
 
+Durlin supports two input paths:
+
 ```
-Jira Issue Key
-      │
-      ▼
-Jira Dev Status API ──► Linked GitHub PRs & Commits
-      │
-      ▼
-GitHub REST API ──► Raw .diff content
-      │
-      ▼
-AI Model ──► Structured technical comment (via prompt-template.md)
-      │
-      ▼
-Jira Comment Posted
+┌─────────────────────────────────┐     ┌──────────────────────────────────────┐
+│  Online (Auto-discovery)        │     │  Offline (Manual refs)               │
+│                                 │     │                                      │
+│  Jira Issue Key                 │     │  --ref <PR or commit URL>            │
+│        │                        │     │  --ref <PR or commit URL>  (N repos) │
+│        ▼                        │     │        │                             │
+│  Jira Dev Status API            │     │        │                             │
+│  → Linked PRs & Commits         │     │        │                             │
+└──────────────┬──────────────────┘     └────────┼───────────────────────────-─┘
+               │                                 │
+               └──────────────┬──────────────────┘
+                              ▼
+               GitHub REST API → Raw .diff content
+                              │
+                              ▼
+               AI Model → Structured technical comment
+                              │
+                              ▼
+               Jira Comment Posted
 ```
 
 No local Git clone required. Durlin fetches everything remotely.
@@ -38,9 +46,11 @@ No local Git clone required. Durlin fetches everything remotely.
 ## Features
 
 - **Auto-discovery** — Resolves Jira issues to linked GitHub PRs and commits via the Jira Dev Status API
+- **Offline / manual mode** — Pass PR or commit URLs directly with `--ref` when the Dev Status API is unavailable; supports multiple URLs across different repositories in a single run
 - **Remote diff fetching** — Reads diffs directly from the GitHub API; works with private repositories
+- **Compare mode** — Diff a commit against any base branch (`--base-branch master`) instead of just its immediate parent
 - **Configurable output language** — Set any language via `AI_OUTPUT_LANGUAGE` in your `.env`
-- **Customizable prompt** — AI behavior is driven by `prompt-template.md`, a plain text file you can edit without touching code
+- **Customizable prompt** — AI behavior is driven by `prompt_template.md`, a plain text file you can edit without touching code
 - **Dry-run mode** — Preview the generated comment in your terminal without posting to Jira
 - **OpenAI-compatible** — Works with any OpenAI-compatible endpoint (Azure OpenAI, NVIDIA NIM, etc.)
 
@@ -102,29 +112,66 @@ AI_OUTPUT_LANGUAGE=Turkish
 
 ## Usage
 
-### Mode 1 — CLI (one-shot)
+### Mode 1 — CLI: Auto-discovery
 
-Run analysis for a single Jira issue and post the comment:
+Durlin fetches the Jira issue, calls the Jira Dev Status API to find all linked PRs and commits across every repository, retrieves their diffs from GitHub, and posts the generated comment.
 
 ```bash
 uv run python -m src.presentation.cli analyze PROJ-123
 ```
 
-Preview the comment without posting:
+Preview the generated comment without posting:
 
 ```bash
 uv run python -m src.presentation.cli analyze PROJ-123 --dry-run
 ```
 
-Provide a specific GitHub PR URL instead of auto-discovering:
+---
+
+### Mode 2 — CLI: Offline / Manual refs
+
+Use this when the **Jira Dev Status API is unavailable** (e.g. restricted permissions, self-hosted Jira, or you simply want to target specific commits). Pass one or more GitHub URLs directly with `--ref`. Each `--ref` can point to a **different repository**, so multi-project Jira issues are fully supported.
+
+**Supported URL types per `--ref`:**
+
+| Type | Example |
+|---|---|
+| Pull Request | `https://github.com/org/repo/pull/42` |
+| Single commit | `https://github.com/org/repo/commit/abc1234` |
+| Compare range | `https://github.com/org/repo/compare/master...abc1234` |
+
+**Single repo:**
 
 ```bash
-uv run python -m src.presentation.cli analyze PROJ-123 "https://github.com/org/repo/pull/42"
+uv run python -m src.presentation.cli analyze PROJ-123 \
+  --ref https://github.com/org/repo/pull/42
 ```
+
+**Multiple repos (one `--ref` per repository):**
+
+```bash
+uv run python -m src.presentation.cli analyze BE-809 \
+  --ref https://github.com/org/social-user-service/commit/abc1234 \
+  --ref https://github.com/org/wagering-service/commit/def5678 \
+  --ref https://github.com/org/social-consumer/pull/55
+```
+
+Durlin fetches each diff independently, labels it with its repository name, and sends all diffs together in a single AI prompt — producing one unified Jira comment covering all repositories.
+
+**Compare commits against a base branch** instead of just their immediate parent:
+
+```bash
+uv run python -m src.presentation.cli analyze BE-809 \
+  --ref https://github.com/org/social-user-service/commit/abc1234 \
+  --ref https://github.com/org/wagering-service/commit/def5678 \
+  --base-branch master
+```
+
+When `--base-branch` is set, each commit URL is resolved as `compare/<base>...<sha>`, giving the full cumulative diff between the branch and that commit rather than just the single commit's changes.
 
 ---
 
-### Mode 2 — Webhook Server (automated)
+### Mode 3 — Webhook Server (automated)
 
 Start Durlin as a long-running HTTP server that listens for Jira transitions:
 
