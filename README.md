@@ -49,6 +49,7 @@ No local Git clone required. Durlin fetches everything remotely.
 - **Offline / manual mode** — Pass PR or commit URLs directly with `--ref` when the Dev Status API is unavailable; supports multiple URLs across different repositories in a single run
 - **Remote diff fetching** — Reads diffs directly from the GitHub API; works with private repositories
 - **Compare mode** — Diff a commit against any base branch (`--base-branch master`) instead of just its immediate parent
+- **Extra prompt** — Inject a one-off instruction at run time with `--prompt` to steer the AI focus without touching the prompt template
 - **Configurable output language** — Set any language via `AI_OUTPUT_LANGUAGE` in your `.env`
 - **Customizable prompt** — AI behavior is driven by `prompt_template.md`, a plain text file you can edit without touching code
 - **Dry-run mode** — Preview the generated comment in your terminal without posting to Jira
@@ -168,6 +169,45 @@ uv run python -m src.presentation.cli analyze BE-809 \
 ```
 
 When `--base-branch` is set, each commit URL is resolved as `compare/<base>...<sha>`, giving the full cumulative diff between the branch and that commit rather than just the single commit's changes.
+
+---
+
+### Extra prompt (`--prompt` / `-p`)
+
+Inject a one-off instruction into the AI request at run time — without editing `prompt_template.md`. The extra prompt is appended as an additional message after the diff, so the structured output format is preserved while the AI gets a specific focus.
+
+```bash
+# Steer the AI toward a specific concern
+uv run python -m src.presentation.cli analyze BE-809 \
+  --prompt "Pay special attention to the database migration risk and rollback strategy."
+```
+
+```bash
+# Combine with offline mode
+uv run python -m src.presentation.cli analyze BE-809 \
+  --ref https://github.com/org/repo/pull/42 \
+  --prompt "This PR removes a feature flag — emphasise the behavioral impact section."
+```
+
+```bash
+# Preview the result before posting
+uv run python -m src.presentation.cli analyze BE-809 \
+  --prompt "The QA team is specifically worried about race conditions." \
+  --dry-run
+```
+
+> The extra prompt does **not** replace the template — it adds context on top of it. Use it for one-off guidance on a specific ticket, and use `prompt_template.md` for permanent changes to the output structure.
+
+---
+
+### CLI Options Reference
+
+| Option | Short | Description |
+|---|---|---|
+| `--ref <url>` | `-r` | GitHub PR, commit, or compare URL. Repeatable for multiple repos. |
+| `--base-branch <branch>` | `-b` | Compare commit URLs against this branch instead of their parent. |
+| `--prompt <text>` | `-p` | Additional instruction injected into the AI request for this run. |
+| `--dry-run` | | Generate the comment but do not post it to Jira. |
 
 ---
 

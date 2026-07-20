@@ -37,7 +37,14 @@ def analyze(
         help="Base branch/ref to compare commits against (e.g. 'master'). "
              "Only applies to commit URLs. When set, uses compare/<base>...<sha> instead of the single-commit diff."
     ),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Generate the comment but do not post it to Jira")
+    dry_run: bool = typer.Option(False, "--dry-run", help="Generate the comment but do not post it to Jira"),
+    extra_prompt: typing.Optional[str] = typer.Option(
+        None,
+        "--prompt", "-p",
+        help="Additional instruction appended to the AI request. "
+             "Use this to steer or focus the generated comment without editing the prompt template. "
+             'Example: --prompt "Focus on the database migration risk."'
+    ),
 ):
     """
     Generate a technical Jira comment from a git diff and optionally post it to Jira.
@@ -75,6 +82,7 @@ def analyze(
             issue_key=issue_key,
             git_references=git_refs if git_refs else None,
             base_branch=base_branch,
+            extra_prompt=extra_prompt,
             dry_run=dry_run,
         )
         

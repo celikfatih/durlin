@@ -27,6 +27,7 @@ class DiffAnalyzerService:
         issue_key: str,
         git_references: typing.Optional[typing.List[str]] = None,
         base_branch: typing.Optional[str] = None,
+        extra_prompt: typing.Optional[str] = None,
         dry_run: bool = False,
     ) -> str:
         """
@@ -40,6 +41,10 @@ class DiffAnalyzerService:
             base_branch:    Optional base branch/ref for commit comparisons (e.g. 'master').
                             When provided alongside a commit URL, the diff is fetched as
                             compare/<base_branch>...<commit_sha>.
+            extra_prompt:   Optional additional instructions injected into the AI request
+                            alongside the diff. Use this to focus or constrain the generated
+                            comment without editing the prompt template
+                            (e.g. "Pay special attention to the migration script risk.").
             dry_run:        If True, returns the comment without posting to Jira.
 
         Returns:
@@ -130,7 +135,13 @@ class DiffAnalyzerService:
                 raise ValueError("Could not auto-discover any diffs from Jira development links. Please provide a direct URL.")
         
         logger.info("Generating AI comment based on diff and issue title...")
-        comment = self.ai.generate_comment(task_title=issue_title, git_diff=diff_content)
+        if extra_prompt:
+            logger.info(f"Extra prompt provided: {extra_prompt[:80]}{'...' if len(extra_prompt) > 80 else ''}")
+        comment = self.ai.generate_comment(
+            task_title=issue_title,
+            git_diff=diff_content,
+            extra_prompt=extra_prompt,
+        )
         
         if dry_run:
             logger.info("Dry run enabled. Skipping Jira comment posting.")
