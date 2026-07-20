@@ -15,28 +15,35 @@ Durlin connects to Jira, discovers linked GitHub Pull Requests, fetches their di
 
 ## How It Works
 
-Durlin supports two input paths:
+Durlin supports two input paths that converge into the same analysis pipeline:
 
-```
-┌─────────────────────────────────┐     ┌──────────────────────────────────────┐
-│  Online (Auto-discovery)        │     │  Offline (Manual refs)               │
-│                                 │     │                                      │
-│  Jira Issue Key                 │     │  --ref <PR or commit URL>            │
-│        │                        │     │  --ref <PR or commit URL>  (N repos) │
-│        ▼                        │     │        │                             │
-│  Jira Dev Status API            │     │        │                             │
-│  → Linked PRs & Commits         │     │        │                             │
-└──────────────┬──────────────────┘     └────────┼───────────────────────────-─┘
-               │                                 │
-               └──────────────┬──────────────────┘
-                              ▼
-               GitHub REST API → Raw .diff content
-                              │
-                              ▼
-               AI Model → Structured technical comment
-                              │
-                              ▼
-               Jira Comment Posted
+```mermaid
+flowchart TD
+    A([Jira Issue Key]) --> B[Jira Dev Status API]
+    B --> C[Linked PRs & Commits\nacross all repositories]
+
+    M([--ref URL x N repos]) --> C
+
+    C --> D[GitHub REST API]
+    D --> E[Raw diff content]
+
+    E --> F{Extra prompt?\n--prompt}
+    F -- Yes --> G[prompt_template.md\n+ extra instruction]
+    F -- No --> H[prompt_template.md]
+
+    G --> I[AI Model]
+    H --> I
+
+    I --> J[Structured technical comment]
+    J --> K{--dry-run?}
+    K -- Yes --> L[Print to terminal]
+    K -- No --> N[Post to Jira issue]
+
+    style A fill:#4f46e5,color:#fff,stroke:none
+    style M fill:#4f46e5,color:#fff,stroke:none
+    style I fill:#059669,color:#fff,stroke:none
+    style N fill:#059669,color:#fff,stroke:none
+    style L fill:#d97706,color:#fff,stroke:none
 ```
 
 No local Git clone required. Durlin fetches everything remotely.
